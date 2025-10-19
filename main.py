@@ -32,24 +32,12 @@ def main():
         train_model(df, eval_during_training=False)
 
     elif command == "eval":
-        import os
-        from src.models.evaluate_models import evaluate_all_models
+        from src.models.evaluate_models import evaluate_final_model
+        evaluate_final_model()
 
-        csv_path = "data/features/all_users.csv"
-        model_path = "models/random_forest_model.joblib"
-
-        if not os.path.exists(csv_path):
-            print("❌ Dataset not found. Please run 'make prepare' first.")
-            return
-
-        if not os.path.exists(model_path):
-            print("❌ Model not found. Please run 'make train' first.")
-            return
-
-        df = pd.read_csv(csv_path, parse_dates=["timestamp"])
-        df.dropna(inplace=True)
-
-        evaluate_all_models()
+    elif command == "train_final":
+        from src.models.train_final import train_final_model
+        train_final_model()
     else:
         print(f"Unknown command: {command}")
 
