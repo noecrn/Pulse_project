@@ -31,7 +31,7 @@ def main():
 
     elif command == "eval":
         import os
-        from src.models.evaluate_models import evaluate_model
+        from src.models.evaluate_models import evaluate_all_models
 
         csv_path = "data/features/all_users.csv"
         model_path = "models/random_forest_model.joblib"
@@ -47,7 +47,7 @@ def main():
         df = pd.read_csv(csv_path, parse_dates=["timestamp"])
         df.dropna(inplace=True)
 
-        evaluate_model()
+        evaluate_all_models()
     else:
         print(f"Unknown command: {command}")
 
