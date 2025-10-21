@@ -29,11 +29,15 @@
 !_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
 !_TAG_PROGRAM_URL	https://ctags.io/	/official site/
 !_TAG_PROGRAM_VERSION	6.2.0	//
+1. Key Features	CONTEXT.md	/^### 1. Key Features$/;"	S	section:⚡️ Pulse Project""💤 Sleep Detection Algorithm
 1. Wearable Device	CONTEXT.md	/^### 1. Wearable Device$/;"	S	section:⚡️ Pulse Project""🧩 Component Breakdown
 1. Wearable Device Hardware	CONTEXT.md	/^### 1. Wearable Device Hardware$/;"	S	section:⚡️ Pulse Project""🧩 Component Breakdown
+2. The Model: Tuned XGBoost	CONTEXT.md	/^### 2. The Model: Tuned XGBoost$/;"	S	section:⚡️ Pulse Project""💤 Sleep Detection Algorithm
 2. iOS Companion App	CONTEXT.md	/^### 2. iOS Companion App$/;"	S	section:⚡️ Pulse Project""🧩 Component Breakdown
+3. Training & Output	CONTEXT.md	/^### 3. Training & Output$/;"	S	section:⚡️ Pulse Project""💤 Sleep Detection Algorithm
 Workflow & Data Flow	CONTEXT.md	/^## Workflow & Data Flow$/;"	s	chapter:⚡️ Pulse Project
 ⚡️ Pulse Project	CONTEXT.md	/^# ⚡️ Pulse Project$/;"	c
 ❗ Key Decisions & Open Questions	CONTEXT.md	/^## ❗ Key Decisions & Open Questions$/;"	s	chapter:⚡️ Pulse Project
 🏛️ System Architecture	CONTEXT.md	/^## 🏛️ System Architecture$/;"	s	chapter:⚡️ Pulse Project
+💤 Sleep Detection Algorithm	CONTEXT.md	/^## 💤 Sleep Detection Algorithm$/;"	s	chapter:⚡️ Pulse Project
 🧩 Component Breakdown	CONTEXT.md	/^## 🧩 Component Breakdown$/;"	s	chapter:⚡️ Pulse Project

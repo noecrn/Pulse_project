@@ -51,8 +51,6 @@ The wearable device is a custom-designed Printed Circuit Board (PCB) engineered 
 
 * **PCB Layout & Component Placement Strategy**: The PCB utilizes a two-sided component placement strategy to optimize for size, sensor performance, and signal integrity.
 
-![2D render of the wearable PCB](./images/2D_PCB1_2025-10-19.png)
-
     * **Top Side**: As shown in the 2D render, this side houses the main digital and power components. This includes the ESP32 MCU (U1), the accelerometer (U8), power management ICs (U4, U5), and the USB-C connector (U7). Placing these components together contains digital noise and simplifies the routing of power and high-speed signals.
     * **Bottom (Skin-Facing) Side**: This side is dedicated to sensors that require direct proximity or contact with the user's skin. It contains the heart rate sensor (U3) and the sensor U9. This physical separation isolates the sensitive analog sensors from the noisy digital logic on the top side, ensuring cleaner and more reliable data acquisition.
 
