@@ -8,152 +8,274 @@
 import Foundation
 import Combine
 
-// Une structure pour stocker proprement chaque point de donnée reçu.
-// C'est plus propre que de manipuler plein de variables séparées.
+// MARK: - Helper Structures
+
 struct SensorDataPoint {
     let timestamp: Date
     let heartRate: Double
     let vectorMagnitude: Double
 }
 
-// Notre classe principale pour le traitement des données.
-// Elle est aussi ObservableObject pour pouvoir communiquer ses résultats facilement.
+struct SleepReport {
+    let bedTime: String
+    let wakeTime: String
+    let sleepDuration: String
+    let efficiency: String
+}
+
+struct ChartDataPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let value: Double
+}
+
+// MARK: - Main Processor Class
+
 class DataProcessor: ObservableObject {
-
-    // MARK: - Propriétés
     
-    // Le "cahier de notes" de notre processeur. Il garde en mémoire
-    // les données des 15 dernières minutes.
-    private var dataPoints: [SensorDataPoint] = []
-    
-    // quand ce vecteur est mis à jour.
+    // --- Live Data Properties ---
+    @Published var currentHeartRate: Double = 0.0
+    @Published var currentVectorMagnitude: Double = 0.0
     @Published var featureVector: [Double] = []
+    @Published var hrHistory: [ChartDataPoint] = []
     
-    // Constante pour définir la durée de notre historique (15 minutes en secondes).
-    private let storageInterval: TimeInterval = 15 * 60
+    // --- Batch Report Properties ---
+    @Published var lastSleepReport: SleepReport? = nil
+    @Published var isAnalyzing: Bool = false
+    
+    // --- Internal Storage ---
+    private var dataPoints: [SensorDataPoint] = []
+    private let predictor = SleepPredictor()
 
-    // TODO: Plus tard, nous ajouterons une propriété @Published pour le vecteur de caractéristiques final.
-    // @Published var featureVector: [Double] = []
-
-    // MARK: - Méthode d'Entrée Publique
-
-    /// Ajoute une nouvelle mesure de capteur à notre historique.
-    /// C'est cette fonction que le BLEManager appellera.
+    // MARK: - 1. Live Data Input
+    
     public func add(heartRate: Double, accelX: Double, accelY: Double, accelZ: Double) {
-        
-        // 1. Calculer la magnitude du vecteur de l'accéléromètre.
-        // C'est une mesure globale du mouvement.
         let magnitude = sqrt(pow(accelX, 2) + pow(accelY, 2) + pow(accelZ, 2))
         
-        // 2. Créer un nouveau point de donnée avec un horodatage actuel.
-        let newDataPoint = SensorDataPoint(timestamp: Date(), heartRate: heartRate, vectorMagnitude: magnitude)
+        DispatchQueue.main.async {
+            self.currentHeartRate = heartRate
+            self.currentVectorMagnitude = magnitude
+        }
         
-        // 3. Ajouter ce point à notre historique.
+        let newDataPoint = SensorDataPoint(timestamp: Date(), heartRate: heartRate, vectorMagnitude: magnitude)
         dataPoints.append(newDataPoint)
         
-        // 4. Nettoyer les données qui sont trop vieilles (plus de 15 minutes).
-        cleanupOldData()
-
-        // Décommente cette ligne pour déclencher les calculs à chaque nouvelle donnée.
-        processNewFeatures()
-        
-        // Pour le débogage, on peut afficher le nombre de points que l'on a.
-        print("Point de donnée ajouté. Total en mémoire: \(dataPoints.count)")
-    }
-    
-    // MARK: - Logique Interne
-
-    /// Supprime les points de données qui datent de plus de 15 minutes pour ne pas surcharger la mémoire.
-    private func cleanupOldData() {
-        let fifteenMinutesAgo = Date().addingTimeInterval(-storageInterval)
-        
-        // On ne garde que les points dont le timestamp est plus récent que "il y a 15 minutes".
+        let fifteenMinutesAgo = Date().addingTimeInterval(-15 * 60)
         dataPoints.removeAll { $0.timestamp < fifteenMinutesAgo }
+        
+        processNewFeatures()
     }
     
-    /// Calcule toutes les caractéristiques statistiques à partir de l'historique des données.
     private func processNewFeatures() {
-        // On s'assure d'avoir au moins quelques données avant de commencer les calculs.
         guard !dataPoints.isEmpty else { return }
         
-        // --- 1. Définir les fenêtres de temps ---
         let now = Date()
         let sixtySecondsAgo = now.addingTimeInterval(-60)
         let fiveMinutesAgo = now.addingTimeInterval(-5 * 60)
-        let fifteenMinutesAgo = now.addingTimeInterval(-15 * 60) // Déjà défini, mais plus clair ici
-
-        // --- 2. Filtrer les données pour chaque fenêtre ---
-        // On crée des sous-tableaux contenant uniquement les données pertinentes pour chaque période.
-        let last60sData = dataPoints.filter { $0.timestamp > sixtySecondsAgo }
-        let last5minData = dataPoints.filter { $0.timestamp > fiveMinutesAgo }
-        // Pour les 15 minutes, on peut simplement utiliser toutes les données en mémoire.
-        let last15minData = dataPoints
         
-        // --- 3. Extraire les valeurs brutes (HR et Mouvement) pour chaque fenêtre ---
-        // On transforme nos tableaux de "SensorDataPoint" en simples tableaux de nombres [Double].
-        let hr60s = last60sData.map { $0.heartRate }
-        let vm60s = last60sData.map { $0.vectorMagnitude }
+        let last60s = dataPoints.filter { $0.timestamp > sixtySecondsAgo }
+        let last5m = dataPoints.filter { $0.timestamp > fiveMinutesAgo }
+        let last15m = dataPoints
         
-        let hr5min = last5minData.map { $0.heartRate }
-        let vm5min = last5minData.map { $0.vectorMagnitude }
+        let hr60 = last60s.map { $0.heartRate }
+        let vm60 = last60s.map { $0.vectorMagnitude }
+        let hr5 = last5m.map { $0.heartRate }
+        let vm5 = last5m.map { $0.vectorMagnitude }
+        let hr15 = last15m.map { $0.heartRate }
+        let vm15 = last15m.map { $0.vectorMagnitude }
         
-        let hr15min = last15minData.map { $0.heartRate }
-        let vm15min = last15minData.map { $0.vectorMagnitude }
-
-        // --- 4. Calculer toutes les statistiques ---
-        // On utilise nos super fonctions .mean() et .stdDev() qu'on a créées plus tôt.
-        // Période de 60 secondes
-        let hr_mean_60s = hr60s.mean()
-        let hr_std_60s = hr60s.stdDev()
-        let vm_mean_60s = vm60s.mean()
-        let vm_std_60s = vm60s.stdDev()
-
-        // Période de 5 minutes
-        let hr_mean_5min = hr5min.mean()
-        let hr_std_5min = hr5min.stdDev()
-        let vm_mean_5min = vm5min.mean()
-        let vm_std_5min = vm5min.stdDev()
-
-        // Période de 15 minutes
-        let hr_mean_15min = hr15min.mean()
-        let hr_std_15min = hr15min.stdDev()
-        let vm_mean_15min = vm15min.mean()
-        let vm_std_15min = vm15min.stdDev()
-
-        // --- 5. Assembler le vecteur de caractéristiques final ---
-        // L'ORDRE EST TRÈS IMPORTANT. Il doit correspondre exactement
-        // à l'ordre des données avec lequel le modèle a été entraîné.
-        let newFeatureVector = [
-            hr_mean_60s, hr_std_60s, vm_mean_60s, vm_std_60s,
-            hr_mean_5min, hr_std_5min, vm_mean_5min, vm_std_5min,
-            hr_mean_15min, hr_std_15min, vm_mean_15min, vm_std_15min
+        let newVector = [
+            hr60.mean(), hr60.stdDev(),
+            hr5.mean(), hr5.stdDev(),
+            hr15.mean(), hr15.stdDev(),
+            
+            vm60.mean(), vm60.stdDev(),
+            vm5.mean(),
+            vm15.mean(), vm15.stdDev()
         ]
         
-        // --- 6. Mettre à jour la propriété @Published ---
-        // En faisant cela, on notifie toute l'application que de nouvelles caractéristiques sont prêtes.
-        // On s'assure que cette mise à jour se fait sur le thread principal pour l'UI.
         DispatchQueue.main.async {
-            self.featureVector = newFeatureVector
-            
-            // Pour le débogage, affichons le vecteur dans la console.
-            // On formate les nombres pour que ce soit plus lisible.
-            let formattedVector = self.featureVector.map { String(format: "%.2f", $0) }.joined(separator: ", ")
-            print("Feature Vector: [\(formattedVector)]")
+            self.featureVector = newVector
         }
+    }
+
+    // MARK: - 2. Batch Analysis (Instant Report)
+    
+    func analyzeFullSession(csvContent: String) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            self.runBatchProcess(csv: csvContent)
+        }
+    }
+    
+    private func runBatchProcess(csv: String) {
+        DispatchQueue.main.async { self.isAnalyzing = true }
+        
+        let lines = csv.components(separatedBy: .newlines)
+        
+        var tempBuffer: [(date: Date, hr: Double, vm: Double)] = []
+        var sleepPredictions: [(time: String, isAsleep: Bool)] = []
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        var referenceDate = Calendar.current.startOfDay(for: Date())
+        var lastTimeInterval: TimeInterval = -1
+
+        // 1. Parse Data
+        for line in lines.dropFirst() {
+            let cols = line.components(separatedBy: ",")
+            if cols.count >= 5,
+               let hr = Double(cols[1]),
+               let ax = Double(cols[2]),
+               let ay = Double(cols[3]),
+               let az = Double(cols[4]),
+               let datePart = formatter.date(from: cols[0]) {
+                
+                let timeInterval = datePart.timeIntervalSince(Calendar.current.startOfDay(for: datePart))
+                if timeInterval < lastTimeInterval {
+                    referenceDate = referenceDate.addingTimeInterval(86400)
+                }
+                lastTimeInterval = timeInterval
+                
+                let actualDate = referenceDate.addingTimeInterval(timeInterval)
+                let vm = sqrt(pow(ax, 2) + pow(ay, 2) + pow(az, 2))
+                
+                tempBuffer.append((actualDate, hr, vm))
+            }
+        }
+        
+        // 2. CHART DATA
+        var smoothedChartPoints: [ChartDataPoint] = []
+        let averageWindow = 300 // 5 minutes
+        
+        for i in stride(from: 0, to: tempBuffer.count, by: averageWindow) {
+            let endIndex = min(i + averageWindow, tempBuffer.count)
+            let chunk = tempBuffer[i..<endIndex]
+            
+            if !chunk.isEmpty {
+                let avgHR = chunk.map { $0.hr }.reduce(0, +) / Double(chunk.count)
+                let midIndex = chunk.startIndex + (chunk.count / 2)
+                let midDate = chunk[midIndex].date
+                smoothedChartPoints.append(ChartDataPoint(date: midDate, value: avgHR))
+            }
+        }
+        
+        // 3. Run Predictions
+        for i in stride(from: 900, to: tempBuffer.count, by: 60) {
+            let startIndex = i - 900
+            let windowIndices = tempBuffer[startIndex...i]
+            let rawWindow = windowIndices.map { (timestamp: "", hr: $0.hr, vm: $0.vm) }
+            
+            let vector = calculateBatchFeatures(window: rawWindow)
+            let prediction = predictor.predict(features: vector)
+            let timeString = formatter.string(from: tempBuffer[i].date)
+            
+            sleepPredictions.append((time: timeString, isAsleep: prediction == 1))
+        }
+        
+        // 4. Generate Smart Report
+        let report = generateReport(from: sleepPredictions, stepSize: 60)
+        
+        DispatchQueue.main.async {
+            self.lastSleepReport = report
+            self.hrHistory = smoothedChartPoints
+            self.isAnalyzing = false
+        }
+    }
+    
+    private func calculateBatchFeatures(window: [(timestamp: String, hr: Double, vm: Double)]) -> [Double] {
+        let hrs = window.map { $0.hr }
+        let vms = window.map { $0.vm }
+        let idx60 = max(0, window.count - 60)
+        let idx300 = max(0, window.count - 300)
+        let hrs60 = Array(hrs[idx60...])
+        let hrs300 = Array(hrs[idx300...])
+        let vms60 = Array(vms[idx60...])
+        let vms300 = Array(vms[idx300...])
+        
+        return [
+            hrs60.mean(), hrs60.stdDev(),
+            hrs300.mean(), hrs300.stdDev(),
+            hrs.mean(), hrs.stdDev(),
+            vms60.mean(), vms60.stdDev(),
+            vms300.mean(),
+            vms.mean(), vms.stdDev()
+        ]
+    }
+    
+    // --- SMART REPORT GENERATION ---
+    // Ignores short "false positive" sleep blocks.
+    private func generateReport(from predictions: [(time: String, isAsleep: Bool)], stepSize: Int) -> SleepReport {
+        
+        // 1. Identify Sleep Blocks
+        // We look for the LONGEST continuous session, allowing for 60-min wake gaps.
+        var bestSession: (start: Int, end: Int, sleepCount: Int) = (0, 0, 0)
+        var currentStart = -1
+        var currentEnd = -1
+        var currentSleepCount = 0
+        var wakeGapCounter = 0
+        
+        // Threshold: 60 mins of wakefulness breaks the session
+        let maxGapSteps = 3600 / stepSize
+        
+        for (index, item) in predictions.enumerated() {
+            if item.isAsleep {
+                if currentStart == -1 { currentStart = index } // Start new session
+                currentEnd = index
+                currentSleepCount += 1
+                wakeGapCounter = 0 // Reset gap
+            } else {
+                if currentStart != -1 {
+                    wakeGapCounter += 1
+                    if wakeGapCounter > maxGapSteps {
+                        // Gap too long, finalize this session
+                        if (currentEnd - currentStart) > (bestSession.end - bestSession.start) {
+                            bestSession = (currentStart, currentEnd, currentSleepCount)
+                        }
+                        // Reset
+                        currentStart = -1
+                        currentSleepCount = 0
+                    }
+                }
+            }
+        }
+        
+        // Check final session
+        if currentStart != -1 && (currentEnd - currentStart) > (bestSession.end - bestSession.start) {
+            bestSession = (currentStart, currentEnd, currentSleepCount)
+        }
+        
+        // If no significant sleep found
+        if bestSession.end == 0 {
+             return SleepReport(bedTime: "--:--", wakeTime: "--:--", sleepDuration: "0h 0m", efficiency: "0%")
+        }
+
+        // 2. Extract Data from Best Session
+        let bedTime = predictions[bestSession.start].time
+        let wakeTime = predictions[bestSession.end].time
+        
+        let secondsInBed = Double(bestSession.end - bestSession.start) * Double(stepSize)
+        let actualSleepSeconds = Double(bestSession.sleepCount * stepSize)
+        
+        let efficiency = secondsInBed > 0 ? (actualSleepSeconds / secondsInBed) * 100 : 0
+        let hours = Int(secondsInBed) / 3600
+        let minutes = (Int(secondsInBed) % 3600) / 60
+        
+        return SleepReport(
+            bedTime: bedTime,
+            wakeTime: wakeTime,
+            sleepDuration: "\(hours)h \(minutes)m",
+            efficiency: String(format: "%.1f%%", efficiency)
+        )
     }
 }
 
-// Extension pour faciliter les calculs sur nos listes de données.
-// C'est une manière propre d'ajouter des fonctions comme "mean" ou "stdDev"
-// à n'importe quel tableau de nombres.
+// MARK: - Math Extensions
 extension Array where Element == Double {
-    /// Calcule la moyenne d'un tableau de Double.
     func mean() -> Double {
         guard !isEmpty else { return 0.0 }
         return reduce(0, +) / Double(count)
     }
 
-    /// Calcule l'écart-type d'un tableau de Double.
     func stdDev() -> Double {
         guard count > 1 else { return 0.0 }
         let meanValue = self.mean()
