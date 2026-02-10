@@ -1,0 +1,30 @@
+# Environnements Python
+.venv/
+__pycache__/
+*.pyc
+
+# Notebooks Jupyter
+.ipynb_checkpoints/
+
+# Données
+data/raw/
+data/processed/
+data/features/
+
+# Fichiers temporaires / logs
+*.log
+*.tmp
+*.DS_Store
+
+# Outputs
+outputs/
+
+# VSCode
+.vscode/
+
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
