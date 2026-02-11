@@ -26,14 +26,18 @@ The system follows a **data streaming architecture**. A low-power wearable devic
 ## 📂 Project Structure
 
 ```bash
-├── Pulse app/             # iOS Companion App (Swift, SwiftUI, CoreML)
-├── src/                   # Python ML Pipeline (Preprocessing, Training)
+├── hardware/              # PCB Design files (Altium/KiCad exports)
+│   ├── schematics/        # 2D/3D Renders and Schematics
+│   └── assembly/          # Assembly drawings and BOM
+├── ios-app/               # iOS Companion App (Swift, SwiftUI, CoreML)
+├── src/                   # Python Codebase
 │   ├── data/              # Data loading and cleaning scripts
-│   └── models/            # XGBoost & Random Forest training logic
-├── notebooks/             # Jupyter Notebooks for EDA and prototyping
-├── models/                # Serialized models (.joblib) and scalers
-├── images/                # Schematics, PCB renders, and diagrams
-└── firmware/              # (Implied) ESP32 C++ Firmware
+│   ├── models/            # XGBoost training logic
+│   └── scripts/           # Pipeline orchestration scripts
+├── models/                # Serialized models (.joblib, .onnx)
+├── notebooks/             # Jupyter Notebooks for EDA
+└── images/                # Documentation assets
+
 ```
 
 ---
@@ -41,31 +45,34 @@ The system follows a **data streaming architecture**. A low-power wearable devic
 ## 🛠 Component Breakdown
 
 ### 1. Wearable Device (Hardware & Firmware)
+
 **Role:** Raw Data Acquisition & Transmission
 **Status:** Design complete, Ready for Fabrication.
 
 * **Microcontroller:** **ESP32-WROOM-32E**. Selected for its dual-core architecture and deep sleep capabilities tailored for battery-operated IoT.
 * **Sensors:**
-    * **FXOS8700CQR1**: 6-axis Accelerometer/Magnetometer for precise motion tracking.
-    * **Heart Rate Sensor**: Dedicated photoplethysmography (PPG) IC for pulse wave sensing.
+* **FXOS8700CQR1**: 6-axis Accelerometer/Magnetometer for precise motion tracking.
+* **Heart Rate Sensor**: Dedicated photoplethysmography (PPG) IC for pulse wave sensing.
+
+
 * **Power Management**: USB-C charging circuit with dedicated voltage regulation (LDOs) to ensure stable power delivery.
 
 #### 🔧 PCB Design & Architecture
+
 The PCB utilizes a **two-sided component placement strategy** to optimize for size and signal integrity:
 
-1.  **Top Side (Digital Domain):** Houses the ESP32, USB-C connector, and power management ICs. This isolates high-frequency digital noise.
-2.  **Bottom Side (Analog/Sensor Domain):** Dedicated to the Heart Rate sensor to ensure direct skin contact and clean analog signal acquisition.
+1. **Top Side (Digital Domain):** Houses the ESP32, USB-C connector, and power management ICs. This isolates high-frequency digital noise.
+2. **Bottom Side (Analog/Sensor Domain):** Dedicated to the Heart Rate sensor to ensure direct skin contact and clean analog signal acquisition.
 
 | 3D Render (Top) | Electronic Schematic |
-| :---: | :---: |
-| <img src="images/3D_PCB1_2025-10-19.png" width="400" alt="3D PCB Render"> | <img src="images/SCH_Schematic1_1-P1_2025-10-19.png" width="400" alt="Schematic"> |
+| --- | --- |
+| <img src="hardware/schematics/3D_PCB1_2025-10-19.png" width="400" alt="3D PCB Render"> | <img src="hardware/schematics/SCH_Schematic1_1-P1_2025-10-19.png" width="400" alt="Schematic"> |
 
 > **Design Choice:** The physical separation of the analog sensor (Bottom) from the noisy digital logic (Top) minimizes signal interference, crucial for accurate biometric readings.
 
 ### 2. Machine Learning Pipeline (Data Science)
 
 **Role:** Classification Algorithm
-
 **Stack:** Python, Scikit-Learn, XGBoost
 
 The core logic is a supervised learning model trained on the **MMASH dataset**.
@@ -84,7 +91,6 @@ The core logic is a supervised learning model trained on the **MMASH dataset**.
 ### 3. iOS Companion App (Software)
 
 **Role:** Client, Processor & Visualizer
-
 **Stack:** Swift, SwiftUI, Charts, Core ML
 
 * **Real-time BLE**: Handles scanning and parsing of the standard Heart Rate Service (UUID `0x180D`).
@@ -92,7 +98,7 @@ The core logic is a supervised learning model trained on the **MMASH dataset**.
 * **UI/UX**: "Deep Night" aesthetic with interactive, scrubbable charts.
 
 <p align="center">
-<img src="https://i.imgur.com/YtVjlis.png" alt="App Dashboard" width="300" />
+<img src="images/IOS_app_screenshot.png" alt="App Dashboard" width="300" />
 </p>
 
 ---
@@ -117,7 +123,7 @@ python train_final.py
 
 ### 2. iOS Application
 
-1. Open `Pulse app/Pulse app.xcodeproj` in Xcode.
+1. Open `ios-app/Pulse app.xcodeproj` in Xcode.
 2. Ensure `PulseClassifier.mlpackage` is linked in the Build Phases.
 3. Run on a physical iPhone (Bluetooth required).
 
@@ -139,6 +145,6 @@ accuracy                               0.93      6075
 
 ## 👤 Author
 
-**Noé Cornu** Computer Engineering Student @ EPITA
+**Noé Cornu** - Computer Engineering Student @ EPITA
 
-[LinkedIn](https://www.google.com/search?q=https://www.linkedin.com/in/no%25C3%25A9-cornu-8599b8269/) | [GitHub](https://www.google.com/search?q=https://github.com/noecrn)
+[GitHub](https://github.com/noecrn) | [LinkedIn](https://www.linkedin.com/in/noecrn/)
