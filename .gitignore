@@ -28,3 +28,13 @@ outputs/
 ._*
 .Spotlight-V100
 .Trashes
+
+
+# Ignore binary files
+*.pkl
+*.joblib
+*.onnx
+*.zip
+*.mlpackage
+
+tags
